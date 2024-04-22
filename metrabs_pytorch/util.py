@@ -1,22 +1,27 @@
 import functools
+import os
 import os.path as osp
+import shutil
+import tempfile
 
 import hydra
 import hydra.core.global_hydra
+
+if "DATA_ROOT" not in os.environ:
+    os.environ["DATA_ROOT"] = ""
 import posepile.datasets3d as ds3d
 import simplepyutils as spu
 import torch
-import os
 from posepile.paths import DATA_ROOT
 
 
 def select_skeleton(coords_src, joint_info_src, skeleton_type_dst):
-    if skeleton_type_dst == '':
+    if skeleton_type_dst == "":
         return coords_src
 
     def get_index(name):
-        if name + '_' + skeleton_type_dst in joint_info_src.names:
-            return joint_info_src.names.index(name + '_h36m')
+        if name + "_" + skeleton_type_dst in joint_info_src.names:
+            return joint_info_src.names.index(name + "_h36m")
         else:
             return joint_info_src.names.index(name)
 
@@ -48,10 +53,25 @@ def get_config(config_name=None):
     if config_name is not None and osp.isabs(config_name):
         config_path = osp.dirname(config_name)
         config_name = osp.basename(config_name)
-        hydra.initialize_config_dir(config_path, version_base='1.1')
+        hydra.initialize_config_dir(config_path, version_base="1.1")
     else:
-        hydra.initialize(config_path='config', version_base='1.1')
+        hydra.initialize(config_path="config", version_base="1.1")
 
     _cfg = hydra.compose(
-        config_name=config_name if config_name is not None else spu.FLAGS.config_name)
+        config_name=config_name if config_name is not None else spu.FLAGS.config_name
+    )
     return _cfg
+
+
+def download_model(path: str):
+    cwd = os.getcwd()
+    if not os.path.isdir(path):
+        os.makedirs(path)
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        try:
+            os.chdir(tmpdirname)
+            os.system("wget -O - https://bit.ly/metrabs_l_pt | tar -xzvf -")
+            for file_name in os.listdir(tmpdirname):
+                shutil.move(os.path.join(tmpdirname, file_name), path)
+        finally:
+            os.chdir(cwd)

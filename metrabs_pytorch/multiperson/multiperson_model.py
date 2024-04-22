@@ -140,6 +140,8 @@ class Pose3dEstimator(torch.nn.Module):
         poses3d_flat = self._predict_in_batches(
             images, intrinsic_matrix, distortion_coeffs, camspace_up, boxes, internal_batch_size,
             aug_should_flip, aug_rotflipmat, aug_gammas, aug_scales, antialias_factor)
+        if poses3d_flat is None:
+            return {"boxes": [[]], "poses3d": [[]], "poses2d": [[]]}
         if self.joint_transform_matrix is not None:
             poses3d_flat = torch.einsum(
                 'bank,nN->baNk', poses3d_flat, self.joint_transform_matrix)
@@ -177,7 +179,7 @@ class Pose3dEstimator(torch.nn.Module):
             poses3d = [torch.mean(p, dim=-3) for p in poses3d]
             poses2d = [torch.mean(p, dim=-3) for p in poses2d]
 
-        result = dict(boxes=boxes, poses3d=poses3d, poses2d=poses2d)
+        result = {"boxes": boxes, "poses3d": poses3d, "poses2d": poses2d}
         # result['crops'] = crops
         return result
 
@@ -222,6 +224,8 @@ class Pose3dEstimator(torch.nn.Module):
                 # crop_batches.append(crops)
             # CROP
             # return torch.cat(crop_batches, dim=0), torch.cat(poses3d_batches, dim=0)
+            if not poses3d_batches:
+                return None
             return torch.cat(poses3d_batches, dim=0)
 
     def _predict_single_batch(
